@@ -14,8 +14,6 @@ public class PicLoader extends CursorLoader {
             MediaStore.Images.ImageColumns.DATA,
             MediaStore.Images.ImageColumns.DATE_ADDED,
             MediaStore.Images.Media.MIME_TYPE,
-            MediaStore.Images.Media.HEIGHT,
-            MediaStore.Images.Media.WIDTH,
     };
 
     private static final String[] SELECTION_ARGS = {

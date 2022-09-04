@@ -1,6 +1,8 @@
 package com.zwp.homework.bean;
 
-public class PicItem {
+import java.io.Serializable;
+
+public class PicItem implements Serializable {
 
     public static final int TYPE_IMG = 0;
     public static final int TYPE_VIDEO = 1;
@@ -10,25 +12,15 @@ public class PicItem {
     private long date;
     private String type;
     private boolean isSelected;
-    private int locationX;
-    private int locationY;
-    private int height;
-    private int width;
+    private boolean hasLocationInfo;
 
-    public int getHeight() {
-        return height;
+
+    public void setHasLocationInfo(boolean hasLocationInfo) {
+        this.hasLocationInfo = hasLocationInfo;
     }
 
-    public void setHeight(int height) {
-        this.height = height;
-    }
-
-    public int getWidth() {
-        return width;
-    }
-
-    public void setWidth(int width) {
-        this.width = width;
+    public boolean isHasLocationInfo() {
+        return hasLocationInfo;
     }
 
     public int getType() {
@@ -45,13 +37,11 @@ public class PicItem {
         this.type = type;
     }
 
-    public PicItem(String url, long date, String type,int height,int width) {
+    public PicItem(String url, long date, String type) {
         this.url = url;
         this.date = date;
         this.type = type;
         isSelected = false;
-        this.width = width;
-        this.height = height;
     }
 
     public String getUrl() {
@@ -76,21 +66,5 @@ public class PicItem {
 
     public void setSelected(boolean selected) {
         isSelected = selected;
-    }
-
-    public int getLocationX() {
-        return locationX;
-    }
-
-    public void setLocationX(int locationX) {
-        this.locationX = locationX;
-    }
-
-    public int getLocationY() {
-        return locationY;
-    }
-
-    public void setLocationY(int locationY) {
-        this.locationY = locationY;
     }
 }

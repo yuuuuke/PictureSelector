@@ -32,10 +32,10 @@ public class PicAdapter extends RecyclerView.Adapter<PicAdapter.BaseHolder> {
     public BaseHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view;
         if (viewType == PicItem.TYPE_IMG) {
-            view = LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_image_item, parent, false);
+            view = LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_image_and_video_item, parent, false);
             return new PicAndVideoHolder(view);
         } else if (viewType == PicItem.TYPE_VIDEO) {
-            view = LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_video_item, parent, false);
+            view = LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_image_and_video_item, parent, false);
             return new PicAndVideoHolder(view);
         } else {
             view = LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_date_item, parent, false);
@@ -58,23 +58,63 @@ public class PicAdapter extends RecyclerView.Adapter<PicAdapter.BaseHolder> {
         return mData.size();
     }
 
+    @Override
+    public void onViewDetachedFromWindow(@NonNull BaseHolder holder) {
+        holder.detachView();
+    }
+
     class PicAndVideoHolder extends BaseHolder {
 
         private ImageView ivPic;
+        private ImageView ivHasLocation;
+        private TextView tvType;
+        private PicItem item;
+        private ImageView ivSelected;
+        private View.OnClickListener listener = new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                item.setSelected(!item.isSelected());
+                notifyItemChanged(getAbsoluteAdapterPosition());
+            }
+        };
 
         public PicAndVideoHolder(@NonNull View itemView) {
             super(itemView);
             ivPic = itemView.findViewById(R.id.iv_image);
+            ivHasLocation = itemView.findViewById(R.id.iv_has_location);
+            tvType = itemView.findViewById(R.id.tv_type);
+            ivSelected = itemView.findViewById(R.id.iv_selected);
+            itemView.setOnClickListener(listener);
         }
 
         @Override
         public void bindView(PicItem item) {
-            loader.load(item.getUrl(), ivPic);
+            this.item = item;
+            loader.load(item, ivPic);
+            if (item.isHasLocationInfo()) {
+                ivHasLocation.setVisibility(View.VISIBLE);
+            } else {
+                ivHasLocation.setVisibility(View.GONE);
+            }
+            if (item.getType() == PicItem.TYPE_IMG) {
+                tvType.setText("图片");
+            } else {
+                tvType.setText("视频");
+            }
+            if (item.isSelected()) {
+                ivSelected.setVisibility(View.VISIBLE);
+            } else {
+                ivSelected.setVisibility(View.GONE);
+            }
+        }
 
+        @Override
+        public void detachView() {
+            loader.detachImg(item.getUrl());
         }
     }
 
-    static class DateHolder extends BaseHolder {
+    class DateHolder extends BaseHolder {
 
         private TextView mTvDate;
 
@@ -96,5 +136,9 @@ public class PicAdapter extends RecyclerView.Adapter<PicAdapter.BaseHolder> {
         }
 
         abstract public void bindView(PicItem item);
+
+        public void detachView() {
+
+        }
     }
 }

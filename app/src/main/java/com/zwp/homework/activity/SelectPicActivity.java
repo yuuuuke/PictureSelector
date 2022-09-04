@@ -1,9 +1,11 @@
 package com.zwp.homework.activity;
 
+import android.content.Intent;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
+import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -16,10 +18,14 @@ import com.zwp.homework.R;
 import com.zwp.homework.adapter.PicAdapter;
 import com.zwp.homework.bean.PicItem;
 import com.zwp.homework.loader.PicLoader;
+import com.zwp.homework.utils.ThreadPoolHelper;
+import com.zwp.homework.utils.Utils;
 
 import java.util.ArrayList;
 
 public class SelectPicActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor> {
+
+    public static final String SELECTED_PIC = "SELECTED_PIC";
 
     private RecyclerView mList;
     private PicAdapter mAdapter;
@@ -35,6 +41,22 @@ public class SelectPicActivity extends AppCompatActivity implements LoaderManage
         mList = findViewById(R.id.list);
         mAdapter = new PicAdapter();
         LoaderManager.getInstance(this).initLoader(0, null, this);
+
+        findViewById(R.id.btn_ok).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ArrayList<PicItem> resultList = new ArrayList<>();
+                for (PicItem i : mData) {
+                    if (i.isSelected()) {
+                        resultList.add(i);
+                    }
+                }
+                Intent intent = new Intent();
+                intent.putExtra(SELECTED_PIC, resultList);
+                setResult(RESULT_OK, intent);
+                finish();
+            }
+        });
     }
 
     private void initData() {
@@ -53,6 +75,21 @@ public class SelectPicActivity extends AppCompatActivity implements LoaderManage
         mAdapter.setData(mData);
         mList.setLayoutManager(manager);
         mList.setAdapter(mAdapter);
+
+        ThreadPoolHelper.getInstance().RunOnIoThread(new Runnable() {
+            @Override
+            public void run() {
+                for (PicItem item : mData) {
+                    item.setHasLocationInfo(Utils.imageHasLocationInfo(item.getUrl()));
+                }
+                mList.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        mAdapter.notifyDataSetChanged();
+                    }
+                });
+            }
+        });
     }
 
     @NonNull
@@ -69,8 +106,6 @@ public class SelectPicActivity extends AppCompatActivity implements LoaderManage
             String url = data.getString(data.getColumnIndex(MediaStore.MediaColumns.DATA));
             long date = data.getLong(data.getColumnIndex(MediaStore.Images.Media.DATE_ADDED));
             String type = data.getString(data.getColumnIndex(MediaStore.Images.Media.MIME_TYPE));
-            int height = data.getInt(data.getColumnIndex(MediaStore.Images.Media.HEIGHT));
-            int width = data.getInt(data.getColumnIndex(MediaStore.Images.Media.WIDTH));
             if (lastTime == -1) {
                 if (date % ONE_DAY > 16 * ONE_HOUR) {
                     //第二天了
@@ -78,7 +113,7 @@ public class SelectPicActivity extends AppCompatActivity implements LoaderManage
                 } else {
                     lastTime = date - date % ONE_DAY - 8 * ONE_HOUR;
                 }
-                PicItem item = new PicItem(null, lastTime, "date", 0, 0);
+                PicItem item = new PicItem(null, lastTime, "date");
                 mData.add(item);
             } else {
                 if ((lastTime - date) >= ONE_DAY) {
@@ -88,11 +123,11 @@ public class SelectPicActivity extends AppCompatActivity implements LoaderManage
                     } else {
                         lastTime = date - date % ONE_DAY - 8 * ONE_HOUR;
                     }
-                    PicItem item = new PicItem(null, lastTime, "date", 0, 0);
+                    PicItem item = new PicItem(null, lastTime, "date");
                     mData.add(item);
                 }
             }
-            PicItem item = new PicItem(url, date, type, height, width);
+            PicItem item = new PicItem(url, date, type);
             mData.add(item);
         }
         initData();

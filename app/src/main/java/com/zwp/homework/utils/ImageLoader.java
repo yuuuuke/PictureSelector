@@ -2,14 +2,16 @@ package com.zwp.homework.utils;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.os.Handler;
-import android.os.HandlerThread;
+import android.media.MediaMetadataRetriever;
 import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
 import androidx.collection.LruCache;
+import androidx.core.content.res.ResourcesCompat;
 
-import java.io.FileInputStream;
+import com.zwp.homework.R;
+import com.zwp.homework.bean.PicItem;
+
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
 
@@ -17,15 +19,13 @@ public class ImageLoader {
 
     HashMap<String, WeakReference<Bitmap>> activeRes;
     LruCache<String, Bitmap> cache;
-    HandlerThread thread;
-    Handler handler;
+
+    private HashMap<ImageView, String> imgTask;
 
     public void initLoader() {
-        thread = new HandlerThread("LOAD_IMAGE");
-        thread.start();
-        handler = new Handler(thread.getLooper());
         int maxMemory = (int) Runtime.getRuntime().maxMemory();
         activeRes = new HashMap<>();
+        imgTask = new HashMap<>();
         cache = new LruCache<String, Bitmap>(maxMemory / 8) {
             @Override
             protected int sizeOf(@NonNull String key, @NonNull Bitmap value) {
@@ -34,26 +34,13 @@ public class ImageLoader {
         };
     }
 
-    public void load(String url, ImageView imageView) {
-//        if (cache.get(item.getUrl()) != null) {
-//            imageView.setImageBitmap(cache.get(item.getUrl()));
-//        } else {
-//            try {
-//                BitmapFactory.Options options = new BitmapFactory.Options();
-//                FileInputStream is = new FileInputStream(item.getUrl());
-//                options.inSampleSize = 5;
-//                Bitmap map = BitmapFactory.decodeStream(is, new Rect(0, 0, 0, 0), options);
-//                cache.put(item.getUrl(), map);
-//                return map;
-//            } catch (Exception e) {
-//                return null;
-//            }
-//        }
-
+    public void load(PicItem item, ImageView imageView) {
+        String url = item.getUrl();
+        imgTask.put(imageView, url);
         if (activeRes.get(url) != null) {
             WeakReference<Bitmap> bitmapWeakReference = activeRes.get(url);
             if (bitmapWeakReference.get() != null) {
-                imageView.setImageBitmap(bitmapWeakReference.get());
+                setImageBitmap(imageView, url, bitmapWeakReference.get());
                 return;
             } else {
                 activeRes.remove(url);
@@ -65,21 +52,37 @@ public class ImageLoader {
             Bitmap bitmap = cache.get(url);
             cache.remove(url);
             activeRes.put(url, new WeakReference<Bitmap>(bitmap));
+
+            setImageBitmap(imageView, url, bitmap);
         } else {
             //去本地加载
-            handler.post(new Runnable() {
+            imageView.setImageDrawable(ResourcesCompat.getDrawable(imageView.getContext().getResources(), R.drawable.default_img, null));
+            ThreadPoolHelper.getInstance().RunOnIoThread(new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        BitmapFactory.Options options = new BitmapFactory.Options();
-                        FileInputStream is = new FileInputStream(url);
-                        options.inSampleSize = 5;
-                        Bitmap map = BitmapFactory.decodeStream(is, null, options);
-                        activeRes.put(url, new WeakReference<>(map));
+                        Bitmap bmp;
+                        if(item.getType() == PicItem.TYPE_IMG){
+                            BitmapFactory.Options options = new BitmapFactory.Options();
+                            options.inJustDecodeBounds = true;
+                            BitmapFactory.decodeFile(url, options);
+                            int temp = Math.min(options.outWidth, options.outHeight);
+                            options.inSampleSize = temp / 400 + 1;
+                            options.inJustDecodeBounds = false;
+                            bmp = BitmapFactory.decodeFile(url, options);
+                        }else{
+                            //视频
+                            MediaMetadataRetriever mmr=new MediaMetadataRetriever();
+                            mmr.setDataSource(url);
+                            bmp = mmr.getFrameAtTime(0);
+                            mmr.close();
+                        }
+
                         imageView.post(new Runnable() {
                             @Override
                             public void run() {
-                                imageView.setImageBitmap(map);
+                                setImageBitmap(imageView, url, bmp);
+                                activeRes.put(url, new WeakReference<>(bmp));
                             }
                         });
                     } catch (Exception e) {
@@ -90,10 +93,17 @@ public class ImageLoader {
         }
     }
 
-    public void release() {
-        if (thread != null) {
-            thread.quit();
+    private void setImageBitmap(ImageView iv, String url, Bitmap bmp) {
+        if (url.equals(imgTask.get(iv))) {
+            iv.setImageBitmap(bmp);
         }
-        //bitmap recycle
+    }
+
+    public void detachImg(String url) {
+        if (activeRes.get(url) != null && activeRes.get(url).get() != null) {
+            Bitmap bitmap = activeRes.get(url).get();
+            activeRes.remove(url);
+            cache.put(url, bitmap);
+        }
     }
 }
